@@ -1,11 +1,10 @@
 #!/bin/bash
 
-SCRIPTS_DIR=$(dirname $0)/..
-
 set -o errexit
 
-BRANCH_NAME=${BRANCH_NAME:-$WERCKER_GIT_BRANCH}
+declare scripts_dir=$(dirname $0)/..
+declare branch_name=${WERCKER_GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
-OPTIONS=$($SCRIPTS_DIR/test-instance/get-options)
-OPTIONS="--branch-name $BRANCH_NAME $OPTIONS"
-$SCRIPTS_DIR/test-instance/launch $OPTIONS
+$scripts_dir/test-instance/launch \
+  --branch-name $branch_name \
+  `$scripts_dir/test-instance/get-options`
