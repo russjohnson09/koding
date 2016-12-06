@@ -90,6 +90,7 @@ module.exports = (KONFIG, options, credentials) ->
         command         : "./watch-node %(ENV_KONFIG_PROJECTROOT)s/servers/sourcemaps/index.js"
 
     webserver           :
+      instances         : 2
       group             : "webserver"
       ports             :
         incoming        : "#{KONFIG.webserver.port}"
@@ -108,6 +109,7 @@ module.exports = (KONFIG, options, credentials) ->
         ]
 
     socialworker        :
+      instances         : 4
       group             : "webserver"
       ports             :
         incoming        : "#{KONFIG.social.port}"
