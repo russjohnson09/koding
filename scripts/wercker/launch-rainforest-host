@@ -7,4 +7,5 @@ declare branch_name=${WERCKER_GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 $scripts_dir/test-instance/launch \
   --branch-name $branch_name \
+  --count $(echo -e "$RAINFOREST_TESTS" | wc --lines) \
   `$scripts_dir/test-instance/get-options`
