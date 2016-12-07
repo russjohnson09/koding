@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -o errexit
+set -o xtrace
 
 function repeat () {
   INTERVAL=$1

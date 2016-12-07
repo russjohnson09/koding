@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -o errexit
+set -o xtrace
 
 if [[ -n "$WERCKER" ]]; then
   [[ -z "$RAINFOREST_TOKEN" ]] && exit 0
