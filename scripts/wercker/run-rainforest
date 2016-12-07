@@ -8,23 +8,36 @@ if [[ -n "$WERCKER" ]]; then
   [[ -z "$RAINFOREST_TESTS" ]] && exit 0
 fi
 
-declare hostname=$(head --lines 1 $1 | awk '{print $3}')
-declare branch=${WERCKER_GIT_BRANCH:-$(git rev-parse --abbrev-ref)}
+declare branch=${WERCKER_GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 declare revision=$(git rev-parse --short HEAD)
 declare test_folder=$(pwd)/tests/spec/rainforest
 
-find $test_folder/ -name '*.rfml' -print0 | \
-  xargs --null sed --in-place --expression "s/{{site.host}}/$hostname/"
+declare host_count=$(cat $1 | wc --lines)
 
-until rainforest --token $RAINFOREST_TOKEN upload --test-folder $test_folder; do
-  sleep 5
+for number in $(seq $(echo -e "$RAINFOREST_TESTS" | wc --lines)); do
+  declare test_info=$(echo -e "$RAINFOREST_TESTS" | sed --expression "${number}q; d")
+  declare test_id=$(echo $test_info | awk '{print $1}')
+  declare test_name=$(echo $test_info | awk '{print $2}')
+
+  if [[ $number -ge $host_count ]]; then
+    declare index=$(( $number % $host_count ))
+    [[ $index -eq 0 ]] && index=1
+  fi
+
+  declare hostname=$(sed "${index}q; d" $1 | awk '{print $3}')
+
+  find $test_folder/ -name '*.rfml' -print0 | \
+    xargs --null sed --in-place --expression "s/{{site.host}}/$hostname/"
+
+  until rainforest --token $RAINFOREST_TOKEN upload --test-folder $test_folder; do
+    sleep 5
+  done
+
+  git checkout tests/
+
+  rainforest --token $RAINFOREST_TOKEN \
+             --description "#$test_id $branch@$revision on $hostname" \
+             --site-id $RAINFOREST_SITE_ID \
+             --custom-url http://$hostname \
+             run $test_id
 done
-
-git checkout tests/
-
-rainforest --token $RAINFOREST_TOKEN \
-           --description "$branch#$revision on $hostname" \
-           --site-id $RAINFOREST_SITE_ID \
-           --custom-url http://$hostname \
-           --tag automated \
-           run
