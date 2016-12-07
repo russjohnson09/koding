@@ -34,4 +34,21 @@ function health_check () {
   return 0
 }
 
-repeat 1m 20 health_check $(cat $1)
+ready_hosts=$(mktemp)
+
+while read instance; do
+  (
+    repeat 1m 20 health_check $instance && echo $instance >> $ready_hosts
+  ) &
+done < $1
+
+for i in $(seq 132); do
+  sleep 10
+  [[ -z "$(jobs -pr)" ]] && exit 0
+done
+
+kill $(jobs -pr)
+
+mv $ready_hosts $1
+
+exit 255
