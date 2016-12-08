@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPTS_DIR=$WERCKER_ROOT/scripts
+SCRIPTS_DIR=$(dirname $0)/..
 
 set -o errexit
 
