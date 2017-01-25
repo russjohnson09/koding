@@ -124,5 +124,11 @@
     "mongodb-migrate": "2.0.1",
     "which": "1.2.12"
   },
-  "optionalDependencies": {}
+  "optionalDependencies": {},
+  "greenkeeper": {
+    "ignore": [
+        "mongodb",
+        "mocha"
+    ]
+  }
 }
