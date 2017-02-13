@@ -2,16 +2,11 @@ package index_test
 
 import (
 	"encoding/json"
-	"io"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"path/filepath"
 	"sort"
 	"testing"
-	"time"
 
 	"koding/klient/machine/index"
+	"koding/klient/machine/index/indextest"
 )
 
 // filetree defines a simple directory structure that will be created for test
@@ -36,27 +31,27 @@ func TestIndex(t *testing.T) {
 		Changes index.ChangeSlice
 	}{
 		"add file": {
-			Op: writeFile("d/test.bin", 40*1024),
+			Op: indextest.WriteFile("d/test.bin", 40*1024),
 			Changes: index.ChangeSlice{
 				index.NewChange("d", index.ChangeMetaUpdate),
 				index.NewChange("d/test.bin", index.ChangeMetaAdd),
 			},
 		},
 		"add dir": {
-			Op: addDir("e"),
+			Op: indextest.AddDir("e"),
 			Changes: index.ChangeSlice{
 				index.NewChange("e", index.ChangeMetaAdd),
 			},
 		},
 		"remove file": {
-			Op: rmAllFile("c/cb.bin"),
+			Op: indextest.RmAllFile("c/cb.bin"),
 			Changes: index.ChangeSlice{
 				index.NewChange("c", index.ChangeMetaUpdate),
 				index.NewChange("c/cb.bin", index.ChangeMetaRemove),
 			},
 		},
 		"remove dir": {
-			Op: rmAllFile("c"),
+			Op: indextest.RmAllFile("c"),
 			Changes: index.ChangeSlice{
 				index.NewChange("c", index.ChangeMetaRemove),
 				index.NewChange("c/ca.txt", index.ChangeMetaRemove),
@@ -64,7 +59,7 @@ func TestIndex(t *testing.T) {
 			},
 		},
 		"rename file": {
-			Op: mvFile("b.bin", "c/cc.bin"),
+			Op: indextest.MvFile("b.bin", "c/cc.bin"),
 			Changes: index.ChangeSlice{
 				index.NewChange("b.bin", index.ChangeMetaRemove),
 				index.NewChange("c", index.ChangeMetaUpdate),
@@ -72,13 +67,13 @@ func TestIndex(t *testing.T) {
 			},
 		},
 		"write file": {
-			Op: writeFile("b.bin", 1024),
+			Op: indextest.WriteFile("b.bin", 1024),
 			Changes: index.ChangeSlice{
 				index.NewChange("b.bin", index.ChangeMetaUpdate),
 			},
 		},
 		"chmod file": {
-			Op: chmodFile("d/dc/dca.txt", 0766),
+			Op: indextest.ChmodFile("d/dc/dca.txt", 0600),
 			Changes: index.ChangeSlice{
 				index.NewChange("d/dc/dca.txt", index.ChangeMetaUpdate),
 			},
@@ -90,7 +85,7 @@ func TestIndex(t *testing.T) {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			root, clean, err := generateTree()
+			root, clean, err := indextest.GenerateTree(filetree)
 			if err != nil {
 				t.Fatalf("want err = nil; got %v", err)
 			}
@@ -106,7 +101,7 @@ func TestIndex(t *testing.T) {
 			}
 
 			// Synchronize underlying file-system.
-			Sync()
+			indextest.Sync()
 
 			cs := idx.Compare(root)
 			sort.Sort(cs)
@@ -120,7 +115,7 @@ func TestIndex(t *testing.T) {
 					t.Errorf("want index.Change path = %q; got %q", tc.Path(), cs[i].Path())
 				}
 				if cs[i].Meta() != tc.Meta() {
-					t.Errorf("want index.Change meta = %bb; got %bb", tc.Meta, cs[i].Meta)
+					t.Errorf("want index.Change meta = %bb; got %bb", tc.Meta(), cs[i].Meta())
 				}
 			}
 
@@ -156,7 +151,7 @@ func TestIndexCount(t *testing.T) {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			root, clean, err := generateTree()
+			root, clean, err := indextest.GenerateTree(filetree)
 			if err != nil {
 				t.Fatalf("want err = nil; got %v", err)
 			}
@@ -175,7 +170,7 @@ func TestIndexCount(t *testing.T) {
 }
 
 func TestIndexJSON(t *testing.T) {
-	root, clean, err := generateTree()
+	root, clean, err := indextest.GenerateTree(filetree)
 	if err != nil {
 		t.Fatalf("want err = nil; got %v", err)
 	}
@@ -198,87 +193,5 @@ func TestIndexJSON(t *testing.T) {
 
 	if cs := idx.Compare(root); len(cs) != 0 {
 		t.Errorf("want no changes after apply; got %#v", cs)
-	}
-}
-
-func generateTree() (root string, clean func(), err error) {
-	root, err = ioutil.TempDir("", "mount.index")
-	if err != nil {
-		return "", nil, err
-	}
-	clean = func() { os.RemoveAll(root) }
-
-	for file, size := range filetree {
-		if err := addDir(file)(root); err != nil {
-			clean()
-			return "", nil, err
-		}
-		if err := writeFile(file, size)(root); err != nil {
-			clean()
-			return "", nil, err
-		}
-	}
-
-	return root, clean, nil
-}
-
-func addDir(file string) func(string) error {
-	return func(root string) error {
-		defer Sync()
-
-		dir := filepath.Join(root, filepath.FromSlash(file))
-		if filepath.Ext(dir) != "" {
-			dir = filepath.Dir(dir)
-		}
-
-		return os.MkdirAll(dir, 0777)
-	}
-}
-
-func writeFile(file string, size int64) func(string) error {
-	return func(root string) error {
-		defer Sync()
-
-		if filepath.Ext(file) == "" {
-			return nil
-		}
-
-		lr := io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), size)
-		content, err := ioutil.ReadAll(lr)
-		if err != nil {
-			return err
-		}
-
-		file := filepath.Join(root, filepath.FromSlash(file))
-		return ioutil.WriteFile(file, content, 0666)
-	}
-}
-
-func rmAllFile(file string) func(string) error {
-	return func(root string) error {
-		defer Sync()
-
-		return os.RemoveAll(filepath.Join(root, filepath.FromSlash(file)))
-	}
-}
-
-func mvFile(oldpath, newpath string) func(string) error {
-	return func(root string) error {
-		defer Sync()
-
-		var (
-			oldpath = filepath.Join(root, filepath.FromSlash(oldpath))
-			newpath = filepath.Join(root, filepath.FromSlash(newpath))
-		)
-
-		return os.Rename(oldpath, newpath)
-	}
-}
-
-func chmodFile(file string, mode os.FileMode) func(string) error {
-	return func(root string) error {
-		defer Sync()
-
-		return os.Chmod(filepath.Join(root, filepath.FromSlash(file)), mode)
 	}
 }

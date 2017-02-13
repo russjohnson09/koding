@@ -192,7 +192,7 @@ func (idx *Index) Lookup(name string) (*Node, bool) {
 	return idx.root.Lookup(name)
 }
 
-// Compare rereads the given file tree roted at root and compares its entries
+// Compare rereads the given file tree rooted at root and compares its entries
 // to previous state of the index. All detected changes will be stored in
 // returned Change slice.
 func (idx *Index) Compare(root string) (cs ChangeSlice) {
@@ -224,7 +224,8 @@ func (idx *Index) Compare(root string) (cs ChangeSlice) {
 		visited[name] = struct{}{}
 		if nd.Entry.MTime != info.ModTime().UnixNano() ||
 			nd.Entry.CTime != ctime(info) ||
-			nd.Entry.Size != info.Size() {
+			nd.Entry.Size != info.Size() ||
+			nd.Entry.Mode != info.Mode() {
 			cs = append(cs, NewChange(name, ChangeMetaUpdate|markLargeMeta(info.Size())))
 		}
 
