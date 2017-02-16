@@ -163,3 +163,7 @@ stages:
         command: |
           service dnsmasq start
           echo nameserver 127.0.0.1 > /etc/resolv.conf
+
+      - type: shell
+        name: test web server
+        command: ./run exec scripts/node-testing/mocha-runner servers/lib/server
