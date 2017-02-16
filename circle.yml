@@ -150,3 +150,10 @@ stages:
       - type: shell
         name: run database migration
         command: ./run migrations up
+
+      - type: shell
+        name: run
+        command: |
+          ./run exec supervisord -c supervisord.conf
+          nginx -c $(pwd)/nginx.conf
+          ./run health-check 30 600
